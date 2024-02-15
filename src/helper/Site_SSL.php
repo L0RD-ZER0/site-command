@@ -13,7 +13,7 @@ use Symfony\Component\Serializer\Serializer;
 use function EE\Site\Utils\reload_global_nginx_proxy;
 use function EE\Utils\get_config_value;
 
-class Site_Letsencrypt {
+class Site_SSL {
 
 	private $conf_dir;
 
