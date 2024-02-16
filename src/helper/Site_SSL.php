@@ -59,7 +59,25 @@ class Site_SSL {
 	}
 
 	public function init() {
-		// TODO
+		return \EE::exec( $this->acme_sh_init );
+	}
+
+	/**
+	 * Loads certificates from volume
+	 *
+	 * Loads certificates in volume to certificate home so acme.sh can make use of them.
+	 * Assumes that <domain>.crt, <domain>.key, <domain>.chain.pem, and <domain>.conf
+	 * are present in the volume. Otherwise, acme.sh will not be able to use them.
+	 *
+	 * @param string $domain Domain for which certificates are to be loaded.
+	 *
+	 * @return bool ``true`` on success, ``false`` on failure.
+	 */
+	private function load_certificates( string $domain ) : bool {
+		return $this->exec("
+			mkdir -p /acme-home/$domain;
+			cp /certs-vol/$domain.* /acme-home/$domain;
+		");
 	}
 
 	/**
