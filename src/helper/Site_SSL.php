@@ -194,8 +194,25 @@ class Site_SSL {
 		// TODO
 	}
 
-	public function list_available_domains() {
-		// TODO
+	/**
+	 * Lists all domains available to acme.sh
+	 *
+	 * @return false|string[] List of available domains
+	 */
+	public function list_available_domains() : array {
+		$command = 'acme.sh --list | sed -e 1d -e s/\ .*$// | xargs echo';
+
+		\EE\Utils\check_proc_available( 'exec' );
+
+		\EE\Utils::debug( '-----------------------' );
+		\EE\Utils::debug( "COMMAND: $command" );
+
+		$proc    = Process::create( $command, null, null );
+		$results = $proc->run();
+		\EE\Utils::debug_run_command( $results );
+		\EE\Utils::debug( '-----------------------' );
+
+		return array_filter( explode( ' ', $results['stdout'] ) );
 	}
 
 	/**
