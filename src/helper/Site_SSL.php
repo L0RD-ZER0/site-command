@@ -66,7 +66,7 @@ class Site_SSL {
 	public function init() : bool {
 		return \EE::exec( $this->acme_sh_init ) &&
 			\EE::exec(
-				'acme.sh --set-default-ca --server ' . $this-> certificate_authority
+				'expor   t LE_CONFIG_HOME=/acme-home && acme.sh --set-default-ca --server ' . $this-> certificate_authority
 			);
 	}
 
