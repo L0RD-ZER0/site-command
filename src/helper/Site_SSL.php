@@ -29,6 +29,8 @@ class Site_SSL {
 
 	/**
 	 * @var string Certificate authority api to make use of
+	 *
+	 * @since 2.2.0
 	 */
 	private $certificate_authority = 'letsencrypt';
 	private $conf_dir;
@@ -59,6 +61,8 @@ class Site_SSL {
 	 * Starts acme.sh service container in daemon mode
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure
+	 *
+	 * @since 2.2.0
 	 */
 	public function init() : bool {
 		return \EE::exec( $this->acme_sh_init ) &&
@@ -77,6 +81,8 @@ class Site_SSL {
 	 * @param string $domain Domain for which certificates are to be loaded.
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
+	 *
+	 * @since 2.2.0
 	 */
 	private function load_certificates( string $domain ) : bool {
 		return $this->exec(
@@ -91,11 +97,13 @@ class Site_SSL {
 	 * Unloads certificates to volume
 	 *
 	 * This function updates the certificates in the volume to match those in
-	 ** certificate home and after onverting them to required format.
+	 ** certificate home and after converting them to required format.
 	 *
 	 * @param string $domain Domain for which certificates are to be unloaded.
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
+	 *
+	 * @since 2.2.0
 	 */
 	private function unload_certificates( string $domain ) : bool {
 		return $this->convert_certificates( $domain ) &&
@@ -114,7 +122,9 @@ class Site_SSL {
 	 *
 	 * @param string $domain domain for certificate
 	 *
-	 * @return bool ``true`` on success, ``false`` on failiure
+	 * @return bool ``true`` on success, ``false`` on failure
+	 *
+	 * @since 2.2.0
 	 */
 	private function convert_certificates( string $domain ) : bool {
 		return $this->exec(
@@ -131,7 +141,9 @@ class Site_SSL {
 	 *
 	 * @param string $email Mail id to be registered.
 	 *
-	 * @return bool ``true`` on success, ``false`` on failiure
+	 * @return bool ``true`` on success, ``false`` on failure
+	 *
+	 * @since 2.2.0
 	 */
 	public function register( string $email ) : bool {
 		return $this->exec(
@@ -140,10 +152,12 @@ class Site_SSL {
 	}
 
 	/**
-	 * @param array $domains
-	 * @param int $reason
+	 * @param array $domains Domains for which certificate is to be revoked.
+	 * @param int $reason Reason for revoking certificate
 	 *
-	 * @return bool
+	 * @return bool ``true`` on success, ``false`` on failure
+	 *
+	 * @since 2.2.0
 	 */
 	public function revoke_certificates( array $domains, int $reason = 0 ) : bool {
 		foreach ( $domains as $domain ) {
@@ -170,9 +184,11 @@ class Site_SSL {
 	/**
 	 * Check expiry if a certificate is already expired.
 	 *
-	 * @param string $domain
+	 * @param string $domain Domain for which certificate is to be checked.
 	 *
-	 * @returns bool ``true`` if certificate is already expired, ``false`` otherwise.
+	 * @return bool ``true`` if certificate is already expired, ``false`` otherwise.
+	 *
+	 * @since 2.2.0
 	 */
 	public function is_already_expired( string $domain ) : bool {
 		return $this->exec(
@@ -193,9 +209,11 @@ class Site_SSL {
 	/**
 	 * Check expiry of a certificate.
 	 *
-	 * @param string $domain
+	 * @param string $domain Domain for which certificate is to be checked.
 	 *
 	 * @returns bool ``true`` if certificate should be renewed, ``false`` otherwise.
+	 *
+	 * @since 2.2.0
 	 */
 	public function is_renewal_necessary( string $domain ) : bool {
 		// Check if certificate expires in next 30 days or so
@@ -214,27 +232,45 @@ class Site_SSL {
 		);
 	}
 
-	public function issue_certificate( $domains ) {
+	/**
+	 * Issue a certificate for a domain
+	 *
+	 * @param string[] $domains Domains for which certificate is to be issued.
+	 *
+	 * @return bool ``true`` on success, ``false`` on failure.
+	 *
+	 * @since 2.2.0
+	 */
+	public function issue_certificate( array $domains ) : bool {
 		// TODO
+		return false;
 	}
 
 	/**
 	 * Lists all domains available to acme.sh
 	 *
 	 * @return false|string[] List of available domains
+	 *
+	 * @since 2.2.0
 	 */
 	public function list_available_domains() : array {
 		$command = 'acme.sh --list | sed -e 1d -e s/\ .*$// | xargs echo';
 
 		\EE\Utils\check_proc_available( 'exec' );
 
-		\EE\Utils::debug( '-----------------------' );
-		\EE\Utils::debug( "COMMAND: $command" );
+		\EE::debug( '-----------------------' );
+		\EE::debug( "COMMAND: $command" );
 
-		$proc    = Process::create( $command, null, null );
+		$proc    = \EE\Process::create( $command, null, null );
 		$results = $proc->run();
-		\EE\Utils::debug_run_command( $results );
-		\EE\Utils::debug( '-----------------------' );
+		if ( ! empty( $results->stdout ) ) {
+			\EE::debug( "STDOUT: $results->stdout" );
+		}
+		if ( ! empty( $results->stderr ) ) {
+			\EE::debug( "STDERR: $results->stderr" );
+		}
+		\EE::debug( "RETURN CODE: $results->return_code" );
+		\EE::debug( '-----------------------' );
 
 		return array_filter( explode( ' ', $results['stdout'] ) );
 	}
