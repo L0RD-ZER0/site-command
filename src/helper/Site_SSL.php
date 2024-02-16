@@ -63,7 +63,7 @@ class Site_SSL {
 	public function init() : bool {
 		return \EE::exec( $this->acme_sh_init ) &&
 			\EE::exec(
-				'expor   t LE_CONFIG_HOME=/acme-home && acme.sh --set-default-ca --server ' . $this-> certificate_authority
+				'export LE_CONFIG_HOME=/acme-home && acme.sh --set-default-ca --server ' . $this-> certificate_authority
 			);
 	}
 
@@ -133,7 +133,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failiure
 	 */
-	public function register( $email ) : bool {
+	public function register( string $email ) : bool {
 		return $this->exec(
 			'acme.sh --register-account --email ' . $email
 		);
@@ -147,18 +147,47 @@ class Site_SSL {
 	 * Check expiry if a certificate is already expired.
 	 *
 	 * @param string $domain
+	 *
+	 * @returns bool ``true`` if certificate is already expired, ``false`` otherwise.
 	 */
-	public function is_already_expired( $domain ) {
-		// TODO
+	public function is_already_expired( string $domain ) : bool {
+		return $this->exec(
+			"
+				timestamp=\"$(acme.sh -d $domain --info | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=\'// -e s/\'//')
+				echo -e \"Timestamp: \$timestamp\nNow: $(date +%s)\"
+				if [ \$timestamp -lt $(date +%s) ]; then  # Timestamp less than now, i.e. date has gone by
+					echo Certificate has Expired;
+					exit 0;  # true
+				else
+					echo Certificate has Not Expired;
+		 			exit 1;  # false
+				fi
+			"
+		);
 	}
 
 	/**
 	 * Check expiry of a certificate.
 	 *
 	 * @param string $domain
+	 *
+	 * @returns bool ``true`` if certificate should be renewed, ``false`` otherwise.
 	 */
-	public function is_renewal_necessary( $domain ) {
-		// TODO
+	public function is_renewal_necessary( string $domain ) : bool {
+		// Check if certificate expires in next 30 days or so
+		return $this->exec(
+			"
+				timestamp=\"$(acme.sh -d $domain --info | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=\'// -e s/\'//')
+				echo -e \"Timestamp: \$timestamp\nNow: $(date +%s)\"
+				if [ \$timestamp -lt $(date -d 30days +%s) ]; then  # Timestamp less than now, i.e. date has gone by
+					echo Renewal is Necessary;
+					exit 0;  # true
+				else
+					echo Renewal is not necessary;
+					exit 1;  # false
+				fi
+			"
+		);
 	}
 
 	public function issue_certificate( $domains ) {
