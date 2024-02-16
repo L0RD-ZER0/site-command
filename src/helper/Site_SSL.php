@@ -63,8 +63,11 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure
 	 */
-	public function init() {
-		return \EE::exec( $this->acme_sh_init );
+	public function init() : bool {
+		return \EE::exec( $this->acme_sh_init ) &&
+			\EE::exec(
+				'acme.sh --set-default-ca --server ' . $this-> certificate_authority
+			);
 	}
 
 	/**
@@ -79,10 +82,12 @@ class Site_SSL {
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 */
 	private function load_certificates( string $domain ) : bool {
-		return $this->exec("
+		return $this->exec(
+			"
 			mkdir -p /acme-home/$domain;
 			cp /certs-vol/$domain.* /acme-home/$domain;
-		");
+		"
+		);
 	}
 
 	/**
@@ -97,12 +102,14 @@ class Site_SSL {
 	 */
 	private function unload_certificates( string $domain ) : bool {
 		return $this->convert_certificates( $domain ) &&
-			$this->exec("
+			$this->exec(
+				"
 				mv /acme-home/$domain/$domain.crt /certs-vol/$domain.crt;
 				mv /acme-home/$domain/$domain.chain.pem /certs-vol/$domain.chain.pem;
 				mv /acme-home/$domain/$domain.key /certs-vol/$domain.key;
 				mv /acme-home/$domain/$domain.conf /certs-vol/$domain.conf;
-			");
+			"
+			);
 	}
 
 	/**
@@ -113,10 +120,12 @@ class Site_SSL {
 	 * @return bool ``true`` on success, ``false`` on failiure
 	 */
 	private function convert_certificates( string $domain ) : bool {
-		return $this->exec("
+		return $this->exec(
+			"
 			cat /acme-home/$domain/$domain.cer /acme-home/$domain/ca.cer > /acme-home/$domain/$domain.crt;
 			cp /acme-home/$domain/ca.cer /acme-home/$domain/$domain.chain.pem;
-		");
+		"
+		);
 	}
 
 
