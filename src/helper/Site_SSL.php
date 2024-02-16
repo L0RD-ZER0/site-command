@@ -134,11 +134,12 @@ class Site_SSL {
 	 *
 	 * @param string $email Mail id to be registered.
 	 *
-	 * @throws \Exception
-	 * @return bool Success.
+	 * @return bool ``true`` on success, ``false`` on failiure
 	 */
-	public function register( $email ) {
-		// TODO
+	public function register( $email ) : bool {
+		return $this->exec(
+			'acme.sh --register-account --email ' . $email
+		);
 	}
 
 	public function revoke_certificates( array $domains ) {
