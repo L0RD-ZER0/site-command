@@ -22,13 +22,10 @@ class Site_SSL {
 	// - <domain>.crt
 	//
 	// Acme.sh gives the following files:
-	// - <domain>.cer
-	// - <domain>.key
+	// - <domain>.cer  (copied to <domain>.crt)
+	// - <domain>.key  (copied to <domain.key>)
 	// - ca.cer
-	// - fullchain.cer
-	//
-	// We need to convert the .cer to .crt by concatenating the .cer and ca.cer
-	// and then rename the ca.cer to <domain>.chain.pem
+	// - fullchain.cer  (copied to <domain.chain.pem>)
 
 	/**
 	 * @var string Certificate authority api to make use of
@@ -122,8 +119,8 @@ class Site_SSL {
 	private function convert_certificates( string $domain ) : bool {
 		return $this->exec(
 			"
-			cat /acme-home/$domain/$domain.cer /acme-home/$domain/ca.cer > /acme-home/$domain/$domain.crt;
-			cp /acme-home/$domain/ca.cer /acme-home/$domain/$domain.chain.pem;
+			cp /acme-home/$domain/fullchain.cer /acme-home/$domain/$domain.chain.pem;
+			cp /acme-home/$domain/$domain.cer /acme-home/$domain/$domain.pem;
 		"
 		);
 	}
