@@ -58,6 +58,11 @@ class Site_SSL {
 		return \EE::exec( $command );
 	}
 
+	/**
+	 * Starts acme.sh service container in daemon mode
+	 *
+	 * @return bool ``true`` on success, ``false`` on failure
+	 */
 	public function init() {
 		return \EE::exec( $this->acme_sh_init );
 	}
@@ -101,9 +106,11 @@ class Site_SSL {
 	}
 
 	/**
-	 * @param string $domain
+	 * Converts the output certificates from acme.sh to our required format
 	 *
-	 * @return bool
+	 * @param string $domain domain for certificate
+	 *
+	 * @return bool ``true`` on success, ``false`` on failiure
 	 */
 	private function convert_certificates( string $domain ) : bool {
 		return $this->exec("
