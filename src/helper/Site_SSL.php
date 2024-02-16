@@ -14,8 +14,8 @@ use function EE\Site\Utils\reload_global_nginx_proxy;
 use function EE\Utils\get_config_value;
 
 class Site_SSL {
-	private $acme_sh_init = 'docker run --rm --name gloal-acme-sh-daemon -v "global-nginx-proxy_certs:/certs-vol" -d neilpang/acme.sh daemon';
-	private $acme_sh = 'docker exec gloal-acme-sh-daemon sh -c';
+	private $acme_sh_init = 'docker run --rm --name service_global-acme-sh-daemon -v "global-nginx-proxy_certs:/certs-vol" -d neilpang/acme.sh daemon';
+	private $acme_sh = 'docker exec service_global-acme-sh-daemon sh -c';
 	// Volume needs three files:
 	// - <domain>.chain.pem
 	// - <domain>.key
@@ -176,7 +176,7 @@ class Site_SSL {
 	 * Cleanup created challenge files and specific rule sets for it.
 	 */
 	public function cleanup() {
-		\EE::exec( 'docker stop gloal-acme-sh-daemon' );
+		\EE::exec( 'docker stop service_global-acme-sh-daemon' );
 	}
 }
 
