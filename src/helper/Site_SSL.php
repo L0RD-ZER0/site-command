@@ -81,6 +81,39 @@ class Site_SSL {
 	}
 
 	/**
+	 * Unloads certificates to volume
+	 *
+	 * This function updates the certificates in the volume to match those in
+	 ** certificate home and after onverting them to required format.
+	 *
+	 * @param string $domain Domain for which certificates are to be unloaded.
+	 *
+	 * @return bool ``true`` on success, ``false`` on failure.
+	 */
+	private function unload_certificates( string $domain ) : bool {
+		return $this->convert_certificates( $domain ) &&
+			$this->exec("
+				mv /acme-home/$domain/$domain.crt /certs-vol/$domain.crt;
+				mv /acme-home/$domain/$domain.chain.pem /certs-vol/$domain.chain.pem;
+				mv /acme-home/$domain/$domain.key /certs-vol/$domain.key;
+				mv /acme-home/$domain/$domain.conf /certs-vol/$domain.conf;
+			");
+	}
+
+	/**
+	 * @param string $domain
+	 *
+	 * @return bool
+	 */
+	private function convert_certificates( string $domain ) : bool {
+		return $this->exec("
+			cat /acme-home/$domain/$domain.cer /acme-home/$domain/ca.cer > /acme-home/$domain/$domain.crt;
+			cp /acme-home/$domain/ca.cer /acme-home/$domain/$domain.chain.pem;
+		");
+	}
+
+
+	/**
 	 * Function to register mail to letsencrypt.
 	 *
 	 * @param string $email Mail id to be registered.
@@ -127,10 +160,6 @@ class Site_SSL {
 	 */
 	public function cleanup() {
 		\EE::exec( 'docker stop gloal-acme-sh-daemon' );
-	}
-
-	private function cer_to_pem( $cer, $csr ) {
-		// TODO
 	}
 }
 
