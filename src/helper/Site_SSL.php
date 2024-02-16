@@ -14,13 +14,49 @@ use function EE\Site\Utils\reload_global_nginx_proxy;
 use function EE\Utils\get_config_value;
 
 class Site_SSL {
+	private $acme_sh_init = 'docker run --rm --name gloal-acme-sh-daemon -v "global-nginx-proxy_certs:/certs-vol" -d neilpang/acme.sh daemon';
+	private $acme_sh = 'docker exec gloal-acme-sh-daemon sh -c';
+	// Volume needs three files:
+	// - <domain>.chain.pem
+	// - <domain>.key
+	// - <domain>.crt
+	//
+	// Acme.sh gives the following files:
+	// - <domain>.cer
+	// - <domain>.key
+	// - ca.cer
+	// - fullchain.cer
+	//
+	// We need to convert the .cer to .crt by concatenating the .cer and ca.cer
+	// and then rename the ca.cer to <domain>.chain.pem
 
+	/**
+	 * @var string Certificate authority api to make use of
+	 */
+	private $certificate_authority = 'letsencrypt';
 	private $conf_dir;
 
 	function __construct() {
 		$this->conf_dir = EE_ROOT_DIR . '/services/nginx-proxy/acme-conf';
 	}
 
+
+	/**
+	 * Function to execute an acme.sh command in its docker container
+	 *
+	 * @param string $command Command to be executed.
+	 *
+	 * @return bool ``true`` on success, ``false`` on failure.
+	 *
+	 * @since 2.2.0
+	 *
+	 */
+	private function exec( string $command ) : bool {
+		$command = str_replace( "'", "\'", $command );
+		$command = $this->acme_sh . "'" . $command . "'";
+		\EE::debug( 'Executing: ' . $command );
+		return \EE::exec( $command );
+	}
 
 	public function init() {
 		// TODO
@@ -72,7 +108,7 @@ class Site_SSL {
 	 * Cleanup created challenge files and specific rule sets for it.
 	 */
 	public function cleanup() {
-		// TODO
+		\EE::exec( 'docker stop gloal-acme-sh-daemon' );
 	}
 
 	private function cer_to_pem( $cer, $csr ) {
