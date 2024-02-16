@@ -139,8 +139,32 @@ class Site_SSL {
 		);
 	}
 
-	public function revoke_certificates( array $domains ) {
-		// TODO
+	/**
+	 * @param array $domains
+	 * @param int $reason
+	 *
+	 * @return bool
+	 */
+	public function revoke_certificates( array $domains, int $reason = 0 ) : bool {
+		foreach ( $domains as $domain ) {
+			$res = $this->load_certificates( $domain );
+			if ( ! $res ) {
+				\EE::debug( "Couldn't load certificate for $domain" );
+				return false;
+			}
+			$res = $this->exec( "acme.sh --revoke -d $domain --reason $reason" );
+			if ( ! $res ) {
+				\EE::debug( "Couldn't revoke certificate for $domain" );
+				return false;
+			}
+			$res = $this->unload_certificates( $domain );
+			if ( ! $res ) {
+				\EE::debug( "Couldn't unload certificate for $domain" );
+				return false;
+			}
+			\EE::debug( "Successfully revoked certificate for $domain" );
+		}
+		return true;
 	}
 
 	/**
