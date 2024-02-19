@@ -184,7 +184,7 @@ class Site_SSL {
 	 *
 	 * @since 2.2.0
 	 */
-	public function revoke_certificates( array $domains, int $reason = 0 ) : bool {
+	public function revoke_certificates( array $domains, int $reason = 0, bool $remove = true ) : bool {
 		foreach ( $domains as $domain ) {
 			$res = $this->load_certificates( $domain );
 			if ( ! $res ) {

@@ -189,22 +189,17 @@ abstract class EE_Site_Command {
 		\EE::confirm( sprintf( 'Are you sure you want to delete %s?', $this->site_data['site_url'] ), $assoc_args );
 
 		if ( $this->site_data['site_ssl'] ) {
-			$all_domains = array_unique( array_merge(
-					explode( ',', $this->site_data['alias_domains'] ),
-					[ $this->site_data['site_url'] ]
-				)
-			);
-
 			EE::log( 'Revoking certificate.' );
 
-			try {
-				$client = new Site_Letsencrypt();
-				$client->revokeAuthorizationChallenges( $all_domains );
-				$client->revokeCertificates( $all_domains );
-			} catch ( \Exception $e ) {
-				EE::warning( $e->getMessage() );
+			$domain = $this->site_data['site_url'];
+			$client = new Site_SSL();
+			$client->init();
+			$res = $client->revoke_certificates( $domain );
+			if ( $res ) {
+				EE::log( "Certificate revoked for domain $domain" );
+			} else {
+				EE::warning( "Could not revoke certificate for domain $domain" );
 			}
-			$client->removeDomain( $all_domains );
 		}
 
 		$this->delete_site( 5, $this->site_data['site_url'], $this->site_data['site_fs_path'], $db_data );
@@ -574,11 +569,19 @@ abstract class EE_Site_Command {
 			}
 		}
 
-		$client = new Site_Letsencrypt();
+		$client = new Site_SSL();
 
 		$old_certs = $client->loadDomainCertificates( $all_domains );
 
 		if ( $is_ssl ) {
+
+			// Revoke old certificate which will not be used
+			if ( $client->revoke_certificates( $old_certs ) ) {
+				\EE::debug( 'Revoked old certificates.' );
+			} else {
+				\EE::warning( 'Could not revoke old certificates.' );
+			}
+
 			// Update SSL.
 			EE::log( 'Updating and force renewing SSL certificate to accomodated alias domain changes.' );
 			try {
@@ -589,9 +592,6 @@ abstract class EE_Site_Command {
 				EE::error( $e->getMessage() );
 			}
 		}
-
-		// Revoke old certificate which will not be used
-		$client->revokeCertificates( $old_certs );
 
 		chdir( $this->site_data['site_fs_path'] );
 		// Required as env variables have changed.
@@ -868,83 +868,6 @@ abstract class EE_Site_Command {
 	}
 
 	/**
-	 * Function to update ssl of a site.
-	 */
-	protected function update_ssl( $assoc_args ) {
-
-		$ssl      = EE\Utils\get_value_if_flag_isset( $assoc_args, 'ssl', 'le' );
-		$wildcard = get_flag_value( $assoc_args, 'wildcard', false );
-
-		if ( $ssl === 'off' ) {
-			$ssl = false;
-		}
-
-		if ( ! $this->site_data->site_ssl_wildcard && $wildcard ) {
-			EE::error( 'Update from normal SSL to wildcard SSL is not supported yet.' );
-		}
-
-		if ( $this->site_data->site_ssl_wildcard && ! $wildcard ) {
-			EE::error( 'Update from wildcard SSL to normal SSL is not supported yet.' );
-		}
-
-		if ( $this->site_data->site_ssl && $ssl ) {
-			EE::error( 'SSL is already enabled on ' . $this->site_data->site_url );
-		}
-
-		if ( ! $this->site_data->site_ssl && ! $ssl ) {
-			EE::error( 'SSL is already disabled on ' . $this->site_data->site_url );
-		}
-
-		if ( ! $ssl && $wildcard ) {
-			EE::error( 'You cannot use --wildcard flag with --ssl=off' );
-		}
-
-		EE::log( 'Starting SSL update for: ' . $this->site_data->site_url );
-		try {
-			$this->site_data->site_ssl          = $ssl;
-			$this->site_data->site_ssl_wildcard = $wildcard ? 1 : 0;
-
-			$site                        = $this->site_data;
-			$array_data                  = ( array ) $this->site_data;
-			$this->site_data             = reset( $array_data );
-			$this->site_data['site_ssl'] = $ssl;
-
-			if ( $ssl ) {
-				$this->www_ssl_wrapper( [ 'nginx' ] );
-			} else {
-				$this->disable_ssl();
-			}
-
-			$site->site_ssl = $ssl;
-		} catch ( \Exception $e ) {
-			EE::error( $e->getMessage() );
-		}
-
-		$site->save();
-
-		if ( $ssl ) {
-			EE::success( 'Enabled SSL for ' . $this->site_data['site_url'] );
-		} else {
-			EE::success( 'Disabled SSL for ' . $this->site_data['site_url'] );
-		}
-
-		delem_log( 'site ssl update end' );
-	}
-
-	/**
-	 * Disables SSL on a site.
-	 *
-	 * @throws \Exception
-	 */
-	private function disable_ssl() {
-
-		$this->dump_docker_compose_yml( [ 'nohttps' => true ] );
-
-		\EE\Site\Utils\start_site_containers( $this->site_data['site_fs_path'], [ 'nginx' ] );
-		\EE\Site\Utils\reload_global_nginx_proxy();
-	}
-
-	/**
 	 * Enables a website. It will start the docker containers of the website if they are stopped.
 	 *
 	 * ## OPTIONS
@@ -1071,6 +994,83 @@ abstract class EE_Site_Command {
 		\EE::success( 'Post enable configurations complete.' );
 
 		\EE\Utils\delem_log( 'site enable end' );
+	}
+
+	/**
+	 * Function to update ssl of a site.
+	 */
+	protected function update_ssl( $assoc_args ) {
+
+		$ssl      = EE\Utils\get_value_if_flag_isset( $assoc_args, 'ssl', 'le' );
+		$wildcard = get_flag_value( $assoc_args, 'wildcard', false );
+
+		if ( $ssl === 'off' ) {
+			$ssl = false;
+		}
+
+		if ( ! $this->site_data->site_ssl_wildcard && $wildcard ) {
+			EE::error( 'Update from normal SSL to wildcard SSL is not supported yet.' );
+		}
+
+		if ( $this->site_data->site_ssl_wildcard && ! $wildcard ) {
+			EE::error( 'Update from wildcard SSL to normal SSL is not supported yet.' );
+		}
+
+		if ( $this->site_data->site_ssl && $ssl ) {
+			EE::error( 'SSL is already enabled on ' . $this->site_data->site_url );
+		}
+
+		if ( ! $this->site_data->site_ssl && ! $ssl ) {
+			EE::error( 'SSL is already disabled on ' . $this->site_data->site_url );
+		}
+
+		if ( ! $ssl && $wildcard ) {
+			EE::error( 'You cannot use --wildcard flag with --ssl=off' );
+		}
+
+		EE::log( 'Starting SSL update for: ' . $this->site_data->site_url );
+		try {
+			$this->site_data->site_ssl          = $ssl;
+			$this->site_data->site_ssl_wildcard = $wildcard ? 1 : 0;
+
+			$site                        = $this->site_data;
+			$array_data                  = ( array ) $this->site_data;
+			$this->site_data             = reset( $array_data );
+			$this->site_data['site_ssl'] = $ssl;
+
+			if ( $ssl ) {
+				$this->www_ssl_wrapper( [ 'nginx' ] );
+			} else {
+				$this->disable_ssl();
+			}
+
+			$site->site_ssl = $ssl;
+		} catch ( \Exception $e ) {
+			EE::error( $e->getMessage() );
+		}
+
+		$site->save();
+
+		if ( $ssl ) {
+			EE::success( 'Enabled SSL for ' . $this->site_data['site_url'] );
+		} else {
+			EE::success( 'Disabled SSL for ' . $this->site_data['site_url'] );
+		}
+
+		delem_log( 'site ssl update end' );
+	}
+
+	/**
+	 * Disables SSL on a site.
+	 *
+	 * @throws \Exception
+	 */
+	private function disable_ssl() {
+
+		$this->dump_docker_compose_yml( [ 'nohttps' => true ] );
+
+		\EE\Site\Utils\start_site_containers( $this->site_data['site_fs_path'], [ 'nginx' ] );
+		\EE\Site\Utils\reload_global_nginx_proxy();
 	}
 
 
@@ -1494,53 +1494,6 @@ abstract class EE_Site_Command {
 			throw new \Exception( "Unrecognized value in --ssl flag: $ssl_type" );
 		}
 	}
-
-	/**
-	 * Runs the acme le registration and authorization.
-	 *
-	 * @param string $site_url     Name of the site for ssl.
-	 * @param string $site_fs_path Webroot of the site.
-	 * @param bool $wildcard       SSL with wildcard or not.
-	 * @param bool $www_or_non_www Allow LetsEncrypt on www or non-www subdomain.
-	 * @param bool $force          Force ssl renewal.
-	 * @param array $alias_domains Array of alias domains if any.
-	 */
-	protected function init_le( $site_url, $site_fs_path, $wildcard = false, $www_or_non_www, $force = false, $alias_domains = [] ) {
-		$preferred_challenge = get_preferred_ssl_challenge( $alias_domains );
-		$is_solver_dns       = ( $wildcard || 'dns' === $preferred_challenge ) ? true : false;
-		\EE::debug( 'Wildcard in init_le: ' . ( bool ) $wildcard );
-
-		$this->site_data['site_fs_path']      = $site_fs_path;
-		$this->site_data['site_ssl_wildcard'] = $wildcard;
-		$client                               = new Site_Letsencrypt();
-		$this->le_mail                        = \EE::get_runner()->config['le-mail'] ?? \EE::input( 'Enter your mail id: ' );
-		\EE::get_runner()->ensure_present_in_config( 'le-mail', $this->le_mail );
-		if ( ! $client->register( $this->le_mail ) ) {
-			$this->site_data['site_ssl'] = null;
-
-			return;
-		}
-
-		$domains = $this->get_cert_domains( $site_url, $wildcard, $www_or_non_www );
-		$domains = array_unique( array_merge( $domains, $alias_domains ) );
-
-		$client->revokeAuthorizationChallenges( $domains );
-
-		if ( ! $client->authorize( $domains, $wildcard, $preferred_challenge ) ) {
-			return;
-		}
-		$api_key_absent = empty( get_config_value( 'cloudflare-api-key' ) );
-		if ( $is_solver_dns && $api_key_absent ) {
-			echo \cli\Colors::colorize( '%YIMPORTANT:%n Run `ee site ssl-verify ' . $site_url . '` once the DNS changes have propagated to complete the certification generation and installation.', null );
-		} else {
-			if ( ! $api_key_absent && $is_solver_dns ) {
-				EE::log( 'Waiting for DNS entry propagation.' );
-				sleep( 10 );
-			}
-			$this->ssl_verify( [], [ 'force' => $force ], $www_or_non_www );
-		}
-	}
-
 	/**
 	 * Returns all domains required by cert
 	 *
@@ -1616,7 +1569,7 @@ abstract class EE_Site_Command {
 	}
 
 	/**
-	 * Verifies ssl challenge and also renews certificates(if expired).
+	 * Verifies if ssl certificate needs renewal and also renews certificates(if expired).
 	 *
 	 * ## OPTIONS
 	 *
@@ -1648,13 +1601,16 @@ abstract class EE_Site_Command {
 		$force         = \EE\Utils\get_flag_value( $assoc_args, 'force' );
 		$alias_domains = empty( $this->site_data['alias_domains'] ) ? [] : explode( ',', $this->site_data['alias_domains'] );
 		$domains       = $this->get_cert_domains( $this->site_data['site_url'], $this->site_data['site_ssl_wildcard'], $www_or_non_www );
+		$domain        = $this->site_data['site_url'];
 		$domains       = array_unique( array_merge( $domains, $alias_domains ) );
-		$client        = new Site_Letsencrypt();
+		$client        = new Site_SSL();
+
+		$client->init();
 
 		$preferred_challenge = get_preferred_ssl_challenge( $domains );
 
 		try {
-			$client->check( $domains, $this->site_data['site_ssl_wildcard'], $preferred_challenge );
+			$renewal = $client->is_renewal_necessary( $domain );
 		} catch ( \Exception $e ) {
 			if ( $called_by_ee && $api_key_absent ) {
 				throw $e;
@@ -1675,7 +1631,10 @@ abstract class EE_Site_Command {
 		}
 
 		$san = array_values( array_diff( $domains, [ $this->site_data['site_url'] ] ) );
-		$client->request( $this->site_data['site_url'], $san, $this->le_mail, $force );
+
+		if ( $renewal || $force ) {
+			$client->renew_certificate( $domain, $renewal || $force );  // Sometimes it behaves weird
+		}
 
 		if ( ! $this->site_data['site_ssl_wildcard'] ) {
 			$client->cleanup();
@@ -1772,15 +1731,15 @@ abstract class EE_Site_Command {
 			EE::error( 'Only Letsencrypt certificate renewal is supported.' );
 		}
 
-		$client              = new Site_Letsencrypt();
+		$client              = new Site_SSL();
 		$preferred_challenge = get_preferred_ssl_challenge( get_domains_of_site( $this->site_data['site_url'] ) );
 
-		if ( $client->isAlreadyExpired( $this->site_data['site_url'] ) && $preferred_challenge !== 'dns' ) {
+		if ( $client->is_already_expired( $this->site_data['site_url'] ) && $preferred_challenge !== 'dns' ) {
 			$this->dump_docker_compose_yml( [ 'nohttps' => true ] );
 			$this->enable( $args, [ 'force' => true ] );
 		}
 
-		if ( ! $force && ! $client->isRenewalNecessary( $this->site_data['site_url'] ) ) {
+		if ( ! $force && ! $client->is_renewal_necessary( $this->site_data['site_url'] ) ) {
 			return 0;
 		}
 
