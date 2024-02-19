@@ -178,6 +178,7 @@ class Site_SSL {
 	/**
 	 * @param array $domains Domains for which certificate is to be revoked.
 	 * @param int $reason Reason for revoking certificate
+	 * @param bool $remove Whether to remove certificate from volume or not
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure
 	 *
@@ -194,6 +195,14 @@ class Site_SSL {
 			if ( ! $res ) {
 				\EE::debug( "Couldn't revoke certificate for $domain" );
 				return false;
+			}
+			if ( $remove ) {
+				if ( ! $this->remove_certificate( $domain ) ) {
+					\EE::debug( "Couldn't remove certificate for $domain" );
+					return false;
+				}
+				\EE::debug( "Successfully removed certificate for $domain" );
+				return true;
 			}
 			$res = $this->unload_certificates( $domain );
 			if ( ! $res ) {
@@ -320,8 +329,10 @@ class Site_SSL {
 		if ( ! $force && ! $this->is_renewal_necessary( $domain ) ) {
 			return true;
 		}
+		$this->load_certificates( $domain );
 		$command = "acme.sh --renew -d $domain" . ( $force ? ' --force' : '' );
 		$res = $this->exec( $command );
+		$this->unload_certificates( $domain );
 		$res ? reload_global_nginx_proxy() : \EE::error( "Failed to renew certificate for domain $domain" );
 		return $res;
 	}
@@ -360,6 +371,21 @@ class Site_SSL {
 	 */
 	public function cleanup() {
 		\EE::exec( 'docker stop service_global-acme-sh-daemon' );
+	}
+
+	/**
+	 * Removes the domain from acme.sh
+	 *
+	 * @param string $domain Domain to be removed.
+	 *
+	 * @return bool ``true`` on success, ``false`` on failure.
+	 *
+	 * @since 2.2.0
+	 */
+	private function remove_certificate( string $domain ) : bool {
+		$command = "acme.sh --remove -d $domain\n
+		rm /certs-vol/$domain.*";
+		return $this->exec( $command );
 	}
 }
 
