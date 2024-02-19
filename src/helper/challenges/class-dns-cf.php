@@ -9,7 +9,7 @@ class DNS_CF extends BaseChallenge {
 	/**
 	 * @inheritDoc
 	 */
-	function solve( array $domains ) : bool {
+	function solve( string $main_domain, array $san_domains, string $email, bool $force = false ) : bool {
 		// TODO: Implement solve() method.
 		return false;
 	}
