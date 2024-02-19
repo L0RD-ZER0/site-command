@@ -303,9 +303,27 @@ class Site_SSL {
 		// determine challenge type
 		$challenge_type = $this->get_challenge_type( $domain );
 
-
 		return $this->challenges[ $challenge_type ]->solve( $domain, $alt_names, $email, $force );
+	}
 
+	/**
+	 * Renews a certificate for a domain
+	 *
+	 * @param string $domain Domain for which certificate is to be renewed.
+	 * @param bool $force Whether to force the renewal for a domain or not.
+	 *
+	 * @return bool ``true`` on success, ``false`` on failure.
+	 *
+	 * @since 2.2.0
+	 */
+	public function renew_certificate( string $domain, bool $force = false ) : bool {
+		if ( ! $force && ! $this->is_renewal_necessary( $domain ) ) {
+			return true;
+		}
+		$command = "acme.sh --renew -d $domain" . ( $force ? ' --force' : '' );
+		$res = $this->exec( $command );
+		$res ? reload_global_nginx_proxy() : \EE::error( "Failed to renew certificate for domain $domain" );
+		return $res;
 	}
 
 	/**
