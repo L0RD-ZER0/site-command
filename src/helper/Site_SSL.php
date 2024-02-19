@@ -62,7 +62,7 @@ class Site_SSL {
 	 * @since 2.2.0
 	 *
 	 */
-	private function exec( string $command ) : bool {
+	public function exec( string $command ) : bool {
 		$command = str_replace( "'", "\'", $command );
 		$command = $this->acme_sh . "'" . $command . "'";
 		\EE::debug( 'Executing: ' . $command );
@@ -311,8 +311,9 @@ class Site_SSL {
 
 		// determine challenge type
 		$challenge_type = $this->get_challenge_type( $domain );
+		\EE::debug( "Selected Challenge Type: $challenge_type" );
 
-//		return $this->challenges[ $challenge_type ]->solve( $domain, $alt_names, $email, $force );
+		// return $this->challenges[ $challenge_type ]->solve( $domain, $alt_names, $email, $force );
 		$solver = new $this->challenges[ $challenge_type ]( $this );
 		return $solver->solve( $domain, $alt_names, $email, $force );
 	}
