@@ -13,6 +13,12 @@ use Symfony\Component\Serializer\Serializer;
 use function EE\Site\Utils\reload_global_nginx_proxy;
 use function EE\Utils\get_config_value;
 
+class ChallengeType {
+	const DNS_MANUAL = 'dns-manual';
+	const DNS_CF = 'dns-cf';
+	const HTTP = 'http';
+}
+
 class Site_SSL {
 	private $acme_sh_init = 'docker run --rm --name service_global-acme-sh-daemon -v "global-nginx-proxy_certs:/certs-vol" -d neilpang/acme.sh daemon';
 	private $acme_sh = 'docker exec service_global-acme-sh-daemon sh -c';
@@ -33,10 +39,16 @@ class Site_SSL {
 	 * @since 2.2.0
 	 */
 	private $certificate_authority = 'letsencrypt';
+	private $challenges;
 	private $conf_dir;
 
 	function __construct() {
 		$this->conf_dir = EE_ROOT_DIR . '/services/nginx-proxy/acme-conf';
+		$this->challenges = [
+			ChallengeType::DNS_MANUAL   => new Site_SSL\DNS_Manual(),
+			ChallengeType::DNS_CF       => new Site_SSL\DNS_CF(),
+			ChallengeType::HTTP         => new Site_SSL\HTTP(),
+		];
 	}
 
 
