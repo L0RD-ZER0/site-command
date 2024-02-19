@@ -2,7 +2,16 @@
 
 namespace EE\Site\Type\Site_SSL;
 
+use EE\Site\Type\Site_SSL;
+
 abstract class Base_Challenge {
+
+	protected $client;
+
+	public function __construct( Site_SSL $client ) {
+		$this->client = $client;
+	}
+
 	/**
 	 * Solves the challenge for the given domain
 	 *

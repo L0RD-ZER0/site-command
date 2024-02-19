@@ -312,7 +312,9 @@ class Site_SSL {
 		// determine challenge type
 		$challenge_type = $this->get_challenge_type( $domain );
 
-		return $this->challenges[ $challenge_type ]->solve( $domain, $alt_names, $email, $force );
+//		return $this->challenges[ $challenge_type ]->solve( $domain, $alt_names, $email, $force );
+		$solver = new $this->challenges[ $challenge_type ]( $this );
+		return $solver->solve( $domain, $alt_names, $email, $force );
 	}
 
 	/**
