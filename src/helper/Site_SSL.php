@@ -147,6 +147,18 @@ class Site_SSL {
 		);
 	}
 
+	/**
+	 * Checks if a certificate is already present for a domain
+	 *
+	 * @param string $domain Domain for which certificate is to be checked.
+	 *
+	 * @return bool ``true`` if certificate is already present, ``false`` otherwise.
+	 *
+	 * @since 2.2.0
+	 */
+	private function has_certificate( string $domain ) : bool {
+		return $this->exec( "test -f /certs-vol/$domain.conf" );
+	}
 
 	/**
 	 * Function to register mail to letsencrypt.
@@ -245,17 +257,55 @@ class Site_SSL {
 	}
 
 	/**
+	 * Determines the type of challenge to make use of for issuing a certificate
+	 *
+	 * @param string $domain Domain for which certificate is to be issued.
+	 * @param string $preferred_challenge Challenge type to be preferred.
+	 *
+	 * @return string Challenge type to be used.
+	 */
+	private function get_challenge_type( string $domain, string $preferred_challenge = '' ) : string {
+		if ( ! ( '*.' === substr( $domain, 0, 2 ) ) &&
+			ChallengeType::HTTP === $preferred_challenge ) {
+			return ChallengeType::HTTP;
+		}
+
+		// Check if cloudflare api key is present or not
+		$cloudflare_api_key = get_config_value( 'cloudflare_api_key' );
+		if ( ! empty( $cloudflare_api_key ) ) {
+			return ChallengeType::DNS_CF;
+		}
+
+		return ChallengeType::DNS_MANUAL;
+	}
+
+	/**
 	 * Issue a certificate for a domain
 	 *
-	 * @param string[] $domains Domains for which certificate is to be issued.
+	 * @param string $domain Domain for which certificate is to be issued.
+	 * @param string[] $alt_names Domains for which certificate is to be issued.
+	 * @param string $email Mail id to be registered.
+	 * @param bool $force Whether to force issue certificate or not.
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 *
 	 * @since 2.2.0
 	 */
-	public function issue_certificate( array $domains ) : bool {
-		// TODO
-		return false;
+	public function issue_certificate( string $domain, array $alt_names, string $email, bool $force = false ) : bool {
+		if ( $this->has_certificate( $domain ) && ! $force ) {
+			if ( ! $this->is_renewal_necessary( $domain ) ) {
+				return true;
+			}
+
+			return $this->renew_certificate( $domain );  // TODO: Add this function
+		}
+
+		// determine challenge type
+		$challenge_type = $this->get_challenge_type( $domain );
+
+
+		return $this->challenges[ $challenge_type ]->solve( $domain, $alt_names, $email, $force );
+
 	}
 
 	/**
