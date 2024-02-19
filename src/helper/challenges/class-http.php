@@ -2,9 +2,9 @@
 
 namespace EE\Site\Type\Site_SSL;
 
-use EE\Site\Type\Site_SSL\BaseChallenge;
+use EE\Site\Type\Site_SSL\Base_Challenge;
 
-class HTTP extends BaseChallenge {
+class HTTP extends Base_Challenge {
 
 	/**
 	 * @inheritDoc

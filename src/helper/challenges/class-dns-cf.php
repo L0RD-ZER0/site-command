@@ -2,9 +2,9 @@
 
 namespace EE\Site\Type\Site_SSL;
 
-use EE\Site\Type\Site_SSL\BaseChallenge;
+use EE\Site\Type\Site_SSL\Base_Challenge;
 
-class DNS_CF extends BaseChallenge {
+class DNS_CF extends Base_Challenge {
 
 	/**
 	 * @inheritDoc

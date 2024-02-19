@@ -2,11 +2,7 @@
 
 namespace EE\Site\Type\Site_SSL;
 
-abstract class BaseChallenge {
-	const HTTP = 'http';
-	const DNS_MANUAL = 'dns-manual';
-	const DNS_CLOUDFLARE = 'dns-cloudflare';
-
+abstract class Base_Challenge {
 	/**
 	 * Solves the challenge for the given domain
 	 *
