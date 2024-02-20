@@ -20,8 +20,8 @@ class ChallengeType {
 }
 
 class Site_SSL {
-	private $acme_sh_init = 'docker run --rm --name service_global-acme-sh-daemon -v "global-nginx-proxy_certs:/certs-vol" -d neilpang/acme.sh daemon';
-	private $acme_sh = 'docker exec service_global-acme-sh-daemon sh -c';
+	private $acme_sh_init;
+	private $acme_sh = 'docker exec -i service_global-acme-sh-daemon sh -c ';
 	// Volume needs three files:
 	// - <domain>.chain.pem
 	// - <domain>.key
@@ -43,7 +43,9 @@ class Site_SSL {
 	private $conf_dir;
 
 	function __construct() {
-		$this->conf_dir = EE_ROOT_DIR . '/services/nginx-proxy/acme-conf';
+		$this->conf_dir = EE_ROOT_DIR . '/services/nginx-proxy/acme-sh-conf';
+		$this->acme_sh_init = "docker run --rm --name service_global-acme-sh-daemon -v \"$this->conf_dir:/acme.sh\""
+								." -v \"global-nginx-proxy_certs:/certs-vol\" -d neilpang/acme.sh daemon";
 		$this->challenges = [
 			ChallengeType::DNS_MANUAL   => new Site_SSL\DNS_Manual(),
 			ChallengeType::DNS_CF       => new Site_SSL\DNS_CF(),
@@ -77,10 +79,18 @@ class Site_SSL {
 	 * @since 2.2.0
 	 */
 	public function init() : bool {
-		return \EE::exec( $this->acme_sh_init ) &&
-			\EE::exec(
-				'export LE_CONFIG_HOME=/acme-home && acme.sh --set-default-ca --server ' . $this-> certificate_authority
-			);
+		$exists = \EE::exec(
+			'
+			docker ps | grep service_global-acme-sh-daemon
+			'
+		);
+		return ( $exists || \EE::exec( $this->acme_sh_init ) ) &&
+				$this->exec(
+					'mkdir -p /acme.sh;'
+					// . 'echo export LE_WORKING_DIR=/acme.sh >>  /etc/profile;'
+					 . 'acme.sh --set-default-ca --server ' . $this->certificate_authority . ';'
+					// . 'echo export DEFAULT_ACME_SERVER=$DEFAULT_ACME_SERVER >>  /etc/profile;'
+				);
 	}
 
 	/**
