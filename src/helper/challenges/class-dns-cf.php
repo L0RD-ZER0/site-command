@@ -33,7 +33,7 @@ class DNS_CF extends Base_Challenge {
 			. 'echo LE_WORKING_DIR=$LE_WORKING_DIR;'
 			. 'echo DEFAULT_ACME_SERVER=$DEFAULT_ACME_SERVER;'
 			. "export CF_Token=\"$cf_token\";"
-			. "acme.sh --issue --test --dns dns_cf -d $main_domain"
+			. "acme.sh --issue --dns dns_cf -d $main_domain"
 			. $san_domains_str
 			. " --email $email"
 			. ( $force ? ' --force' : ''),
