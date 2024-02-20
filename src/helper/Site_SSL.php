@@ -47,9 +47,9 @@ class Site_SSL {
 		$this->acme_sh_init = "docker run --rm --name service_global-acme-sh-daemon -v \"$this->conf_dir:/acme.sh\""
 								." -v \"global-nginx-proxy_certs:/certs-vol\" -d neilpang/acme.sh daemon";
 		$this->challenges = [
-			ChallengeType::DNS_MANUAL   => new Site_SSL\DNS_Manual(),
-			ChallengeType::DNS_CF       => new Site_SSL\DNS_CF(),
-			ChallengeType::HTTP         => new Site_SSL\HTTP(),
+			ChallengeType::DNS_MANUAL   => new Site_SSL\DNS_Manual( $this ),
+			ChallengeType::DNS_CF       => new Site_SSL\DNS_CF( $this ),
+			ChallengeType::HTTP         => new Site_SSL\HTTP( $this ),
 		];
 	}
 
