@@ -200,6 +200,7 @@ abstract class EE_Site_Command {
 			} else {
 				EE::warning( "Could not revoke certificate for domain $domain" );
 			}
+			$client->cleanup();
 		}
 
 		$this->delete_site( 5, $this->site_data['site_url'], $this->site_data['site_fs_path'], $db_data );
