@@ -1415,7 +1415,7 @@ abstract class EE_Site_Command {
 					$this->init_ssl( $this->site_data['site_url'], $this->site_data['site_fs_path'], $this->site_data['site_ssl'], $wildcard, $is_www_or_non_www_pointed, $force, $alias_domains );
 				}
 
-				\EE::success( 'SSL enabled for ' . $this->site_data['site_url'] . 'Dumping the config' );
+				\EE::success( 'SSL enabled for ' . $this->site_data['site_url'] . ' Updating the configuration.' );
 				$this->dump_docker_compose_yml( [ 'nohttps' => false ] );
 
 				\EE\Site\Utils\start_site_containers( $this->site_data['site_fs_path'], $containers_to_start );
