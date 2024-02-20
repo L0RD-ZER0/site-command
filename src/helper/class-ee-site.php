@@ -1543,6 +1543,7 @@ abstract class EE_Site_Command {
 
 		$le_mail = \EE::get_runner()->config['le-mail'] ?? \EE::input( 'Enter your mail id: ' );
 		$client->issue_certificate( $site_url, $domains, $le_mail, $force );
+		$client->cleanup();
 		$this->dump_docker_compose_yml();
 		reload_global_nginx_proxy();
 	}

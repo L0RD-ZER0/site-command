@@ -44,6 +44,7 @@ class HTTP extends Base_Challenge {
 				[], true
 			);
 			if ( ! $res ) {
+				$this->client->cleanup();
 				\EE::error( 'Failed to issue SSL certificate' );
 				return false;
 			}
@@ -52,11 +53,13 @@ class HTTP extends Base_Challenge {
 			reload_global_nginx_proxy();
 			\EE::success( 'SSL certificate has been successfully issued' );
 		} catch ( \Exception $e ) {
+			$this->client->cleanup();
 			\EE::debug( 'Exception Encountered:' . $e->getMessage() );
 			\EE::error( 'Failed to verify SSL certificate for ' . $main_domain );
 			return false;
 		}
 		if ( ! $this->client->unload_certificates( $main_domain ) ) {
+			$this->client->cleanup();
 			\EE::error( "Couldn't unload produced certificates into the volume" );
 			return false;
 		}

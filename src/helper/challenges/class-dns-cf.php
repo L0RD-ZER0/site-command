@@ -13,6 +13,7 @@ class DNS_CF extends Base_Challenge {
 	function solve( string $main_domain, array $san_domains, string $email, bool $force = false ) : bool {
 		$cf_token = get_config_value( 'cloudflare_api_key' );
 		if ( ! $this->client->init() ) {
+			$this->client->cleanup();
 			\EE::error( "Couldn't start the service for acme.sh" );
 			return false;
 		}
@@ -40,10 +41,12 @@ class DNS_CF extends Base_Challenge {
 			[ $cf_token ], true
 		);
 		if ( ! $res ) {
+			$this->client->cleanup();
 			\EE::error( "Couldn't issue certificate from acme.sh" );
 			return false;
 		}
 		if ( ! $this->client->unload_certificates( $main_domain ) ) {
+			$this->client->cleanup();
 			\EE::error( "Couldn't unload produced certificates into the volume" );
 			return false;
 		}
