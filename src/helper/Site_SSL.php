@@ -58,17 +58,21 @@ class Site_SSL {
 	 * Function to execute an acme.sh command in its docker container
 	 *
 	 * @param string $command Command to be executed.
+	 * @param array $obfuscate Array of strings to obfuscate in logs.
+	 * @param bool $echo_stdout Whether to echo stdout or not.
+	 * @param bool $echo_stderr Whether to echo stderr or not.
+	 * @param bool $exit_on_error Whether to exit on error or not.
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 *
 	 * @since 2.2.0
 	 *
 	 */
-	public function exec( string $command ) : bool {
+	public function exec( string $command, array $obfuscate = [], bool $echo_stdout = false, bool $echo_stderr = false, bool $exit_on_error = false ) : bool {
 		$command = str_replace( "'", "\'", $command );
 		$command = $this->acme_sh . "'" . $command . "'";
 		\EE::debug( 'Executing: ' . $command );
-		return \EE::exec( $command );
+		return \EE::exec( $command, $echo_stdout, $echo_stderr, $obfuscate, $exit_on_error );
 	}
 
 	/**
