@@ -194,7 +194,7 @@ abstract class EE_Site_Command {
 			$domain = $this->site_data['site_url'];
 			$client = new Site_SSL();
 			$client->init();
-			$res = $client->revoke_certificates( $domain );
+			$res = $client->revoke_certificates( [ $domain ] );
 			if ( $res ) {
 				EE::log( "Certificate revoked for domain $domain" );
 			} else {
