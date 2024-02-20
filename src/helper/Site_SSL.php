@@ -159,7 +159,7 @@ class Site_SSL {
 					mv -f $cert_dir /acme.sh/$domain;
 			done;'  // Move ECC certificates to non-ECC directory, if present
 			. "cp /acme.sh/$domain/fullchain.cer /acme.sh/$domain/$domain.chain.pem;"
-			. "cp /acme.sh/$domain/$domain.cer /acme.sh/$domain/$domain.crt;"
+			. "cp /acme.sh/$domain/fullchain.cer /acme.sh/$domain/$domain.crt;"
 		);
 	}
 
