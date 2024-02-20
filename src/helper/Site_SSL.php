@@ -44,8 +44,11 @@ class Site_SSL {
 
 	function __construct() {
 		$this->conf_dir = EE_ROOT_DIR . '/services/nginx-proxy/acme-sh-conf';
-		$this->acme_sh_init = "docker run --rm --name service_global-acme-sh-daemon -v \"$this->conf_dir:/acme.sh\""
-								." -v \"global-nginx-proxy_certs:/certs-vol\" -d neilpang/acme.sh daemon";
+		$webroot = EE_ROOT_DIR . '/services/nginx-proxy/html/';
+		$this->acme_sh_init = 'docker run --rm --name service_global-acme-sh-daemon'
+								. " -v \"$this->conf_dir:/acme.sh\""
+								. " -v \"$webroot:/webroot\""
+								. ' -v "global-nginx-proxy_certs:/certs-vol" -d neilpang/acme.sh daemon';
 		$this->challenges = [
 			ChallengeType::DNS_MANUAL   => new Site_SSL\DNS_Manual( $this ),
 			ChallengeType::DNS_CF       => new Site_SSL\DNS_CF( $this ),
