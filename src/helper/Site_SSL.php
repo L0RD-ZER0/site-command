@@ -242,7 +242,7 @@ class Site_SSL {
 	public function is_already_expired( string $domain ) : bool {
 		return $this->exec(
 			"
-				timestamp=\"$(cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e s/\'//)\"
+				timestamp=\"$(cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e s/\\'//)\"
 				timestamp=date -d \"$(date -d @\$timestamp)+1days\" +%s
 				echo -e \"Timestamp: \$timestamp\nNow: $(date +%s)\"
 				if [ \$timestamp -lt $(date +%s) ]; then  # Timestamp less than now, i.e. date has gone by
@@ -269,7 +269,7 @@ class Site_SSL {
 		// Check if certificate expires in next 30 days or so
 		return $this->exec(
 			"
-				timestamp=\"$(cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e s/\'//)\"
+				timestamp=\"$(cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e s/\\'//)\"
 				timestamp=date -d \"$(date -d @\$timestamp)+1days\" +%s
 				echo -e \"Timestamp: \$timestamp\nNow: $(date +%s)\"
 				if [ \$timestamp -lt $(date -d 30days +%s) ]; then  # Timestamp less than now, i.e. date has gone by
