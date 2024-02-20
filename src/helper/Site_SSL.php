@@ -390,9 +390,21 @@ class Site_SSL {
 
 	/**
 	 * Cleanup created challenge files and specific rule sets for it.
+	 *
+	 * @returns bool ``true`` on success, ``false`` on failure.
+	 *
+	 * @since 2.2.0
 	 */
-	public function cleanup() {
-		\EE::exec( 'docker stop service_global-acme-sh-daemon' );
+	public function cleanup() : bool {
+		$exists = \EE::exec(
+			'
+			docker ps | grep service_global-acme-sh-daemon
+		'
+		);
+		if ( ! $exists ) {
+			return true;
+		}
+		return \EE::exec( 'docker stop service_global-acme-sh-daemon' );
 	}
 
 	/**
