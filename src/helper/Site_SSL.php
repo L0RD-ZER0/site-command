@@ -242,7 +242,8 @@ class Site_SSL {
 	public function is_already_expired( string $domain ) : bool {
 		return $this->exec(
 			"
-				timestamp=\"$(acme.sh -d $domain --info | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=\'// -e s/\'//')
+				timestamp=\"$(cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e s/\'//)\"
+				timestamp=date -d \"$(date -d @\$timestamp)+1days\" +%s
 				echo -e \"Timestamp: \$timestamp\nNow: $(date +%s)\"
 				if [ \$timestamp -lt $(date +%s) ]; then  # Timestamp less than now, i.e. date has gone by
 					echo Certificate has Expired;
@@ -268,7 +269,8 @@ class Site_SSL {
 		// Check if certificate expires in next 30 days or so
 		return $this->exec(
 			"
-				timestamp=\"$(acme.sh -d $domain --info | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=\'// -e s/\'//')
+				timestamp=\"$(cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e s/\'//)\"
+				timestamp=date -d \"$(date -d @\$timestamp)+1days\" +%s
 				echo -e \"Timestamp: \$timestamp\nNow: $(date +%s)\"
 				if [ \$timestamp -lt $(date -d 30days +%s) ]; then  # Timestamp less than now, i.e. date has gone by
 					echo Renewal is Necessary;
@@ -291,7 +293,7 @@ class Site_SSL {
 	 */
 	private function get_challenge_type( string $domain, string $preferred_challenge = '' ) : string {
 		if ( ! ( '*.' === substr( $domain, 0, 2 ) ) &&
-			ChallengeType::HTTP === $preferred_challenge ) {
+			 ChallengeType::HTTP === $preferred_challenge ) {
 			return ChallengeType::HTTP;
 		}
 
@@ -322,7 +324,7 @@ class Site_SSL {
 				return true;
 			}
 
-			return $this->renew_certificate( $domain );  // TODO: Add this function
+			return $this->renew_certificate( $domain );
 		}
 
 		// determine challenge type
@@ -330,7 +332,7 @@ class Site_SSL {
 		\EE::debug( "Selected Challenge Type: $challenge_type" );
 
 		// return $this->challenges[ $challenge_type ]->solve( $domain, $alt_names, $email, $force );
-		$solver = new $this->challenges[ $challenge_type ]( $this );
+		$solver = $this->challenges[ $challenge_type ];
 		return $solver->solve( $domain, $alt_names, $email, $force );
 	}
 
@@ -364,7 +366,8 @@ class Site_SSL {
 	 * @since 2.2.0
 	 */
 	public function list_available_domains() : array {
-		$command = 'acme.sh --list | sed -e 1d -e s/\ .*$// | xargs echo';
+		//$command = 'docker exec service_global-acme-sh-daemon sh -c \'acme.sh --list | sed -e 1d -e s/\ .*$// | xargs echo\'';
+		$command = 'docker exec service_global-acme-sh-daemon sh -c \'ls /certs-vol/*.conf | xargs -n 1 basename | sed -e s/.conf//\'';
 
 		\EE\Utils\check_proc_available( 'exec' );
 
@@ -382,7 +385,7 @@ class Site_SSL {
 		\EE::debug( "RETURN CODE: $results->return_code" );
 		\EE::debug( '-----------------------' );
 
-		return array_filter( explode( ' ', $results['stdout'] ) );
+		return array_filter( explode( ' ', $results->stdout ) );
 	}
 
 	/**
