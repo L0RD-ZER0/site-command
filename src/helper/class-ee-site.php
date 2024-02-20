@@ -1411,16 +1411,10 @@ abstract class EE_Site_Command {
 						}
 					}
 
-					/**
-					 * In cases like Re-enabling SSL on a site which had SSL at a time, or while renewing
-					 * certificates, need to check if the existing certificate is valid. If it is valid,
-					 * we don't need to create or get new certs. We can use the existing ones.
-					 */
-					if ( $force || EE\Site\Utils\ssl_needs_creation( $this->site_data['site_url'] ) ) {
-						$this->init_ssl( $this->site_data['site_url'], $this->site_data['site_fs_path'], $this->site_data['site_ssl'], $wildcard, $is_www_or_non_www_pointed, $force, $alias_domains );
-					}
+					$this->init_ssl( $this->site_data['site_url'], $this->site_data['site_fs_path'], $this->site_data['site_ssl'], $wildcard, $is_www_or_non_www_pointed, $force, $alias_domains );
 				}
 
+				\EE::success( 'SSL enabled for ' . $this->site_data['site_url'] . 'Dumping the config' );
 				$this->dump_docker_compose_yml( [ 'nohttps' => false ] );
 
 				\EE\Site\Utils\start_site_containers( $this->site_data['site_fs_path'], $containers_to_start );
@@ -1494,6 +1488,64 @@ abstract class EE_Site_Command {
 			throw new \Exception( "Unrecognized value in --ssl flag: $ssl_type" );
 		}
 	}
+
+	/**
+	 * Runs the acme le registration and authorization.
+	 *
+	 * @param string $site_url     Name of the site for ssl.
+	 * @param string $site_fs_path Webroot of the site.
+	 * @param bool $wildcard       SSL with wildcard or not.
+	 * @param bool $www_or_non_www Allow LetsEncrypt on www or non-www subdomain.
+	 * @param bool $force          Force ssl renewal.
+	 * @param array $alias_domains Array of alias domains if any.
+	 */
+	protected function init_le( $site_url, $site_fs_path, $wildcard = false, $www_or_non_www, $force = false, $alias_domains = [] ) {
+		$preferred_challenge = get_preferred_ssl_challenge( $alias_domains );
+		$is_solver_dns       = ( $wildcard || 'dns' === $preferred_challenge ) ? true : false;
+		\EE::debug( 'Wildcard in init_le: ' . ( bool ) $wildcard );
+
+		$this->site_data['site_fs_path']      = $site_fs_path;
+		$this->site_data['site_ssl_wildcard'] = $wildcard;
+		$client                               = new Site_SSL();
+		$this->le_mail                        = \EE::get_runner()->config['le-mail'] ?? \EE::input( 'Enter your mail id: ' );
+		$client->init();
+
+		\EE::get_runner()->ensure_present_in_config( 'le-mail', $this->le_mail );
+		if ( ! $client->register( $this->le_mail ) ) {
+			$this->site_data['site_ssl'] = null;
+
+			return;
+		}
+
+		$domains = $this->get_cert_domains( $site_url, $wildcard, $www_or_non_www );
+		$domains = array_unique( array_merge( $domains, $alias_domains ) );
+
+		$key = array_search( $site_url, $client->list_available_domains(), true );
+
+		if ( false !== $key ) {
+			$client->revoke_certificates( [ $site_url ] );
+		}
+
+//		if ( ! $client->authorize( $domains, $wildcard, $preferred_challenge ) ) {
+//			return;
+//		}
+//		$api_key_absent = empty( get_config_value( 'cloudflare-api-key' ) );
+//		if ( $is_solver_dns && $api_key_absent ) {
+//			echo \cli\Colors::colorize( '%YIMPORTANT:%n Run `ee site ssl-verify ' . $site_url . '` once the DNS changes have propagated to complete the certification generation and installation.', null );
+//		} else {
+//			if ( ! $api_key_absent && $is_solver_dns ) {
+//				EE::log( 'Waiting for DNS entry propagation.' );
+//				sleep( 10 );
+//			}
+//			$this->ssl_verify( [], [ 'force' => $force ], $www_or_non_www );
+//		}
+
+		$le_mail = \EE::get_runner()->config['le-mail'] ?? \EE::input( 'Enter your mail id: ' );
+		$client->issue_certificate( $site_url, $domains, $le_mail, $force );
+		$this->dump_docker_compose_yml();
+		reload_global_nginx_proxy();
+	}
+
 	/**
 	 * Returns all domains required by cert
 	 *
@@ -1532,7 +1584,7 @@ abstract class EE_Site_Command {
 	 *
 	 * @return bool
 	 */
-	protected function check_www_or_non_www_domain( $site_url, $site_path, $site_container_path ): bool {
+	protected function check_www_or_non_www_domain( $site_url, $site_path, $site_container_path ) : bool {
 
 		$random_string = EE\Utils\random_password();
 		$successful    = false;
