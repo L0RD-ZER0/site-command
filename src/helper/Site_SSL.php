@@ -110,11 +110,11 @@ class Site_SSL {
 	 *
 	 * @since 2.2.0
 	 */
-	private function load_certificates( string $domain ) : bool {
+	public function load_certificates( string $domain ) : bool {
 		return $this->exec(
 			"
-			mkdir -p /acme-home/$domain;
-			cp /certs-vol/$domain.* /acme-home/$domain;
+			mkdir -p /acme.sh/$domain;
+			cp /certs-vol/$domain.* /acme.sh/$domain;
 		"
 		);
 	}
@@ -131,15 +131,14 @@ class Site_SSL {
 	 *
 	 * @since 2.2.0
 	 */
-	private function unload_certificates( string $domain ) : bool {
+	public function unload_certificates( string $domain ) : bool {
 		return $this->convert_certificates( $domain ) &&
 			$this->exec(
-				"
-				mv /acme-home/$domain/$domain.crt /certs-vol/$domain.crt;
-				mv /acme-home/$domain/$domain.chain.pem /certs-vol/$domain.chain.pem;
-				mv /acme-home/$domain/$domain.key /certs-vol/$domain.key;
-				mv /acme-home/$domain/$domain.conf /certs-vol/$domain.conf;
-			"
+				"mv /acme.sh/$domain/$domain.crt /certs-vol/$domain.crt;"
+				. "mv /acme.sh/$domain/$domain.cer /certs-vol/$domain.cer;"
+				. "mv /acme.sh/$domain/$domain.chain.pem /certs-vol/$domain.chain.pem;"
+				. "mv /acme.sh/$domain/$domain.key /certs-vol/$domain.key;"
+				. "mv /acme.sh/$domain/$domain.conf /certs-vol/$domain.conf;"
 			);
 	}
 
@@ -154,10 +153,13 @@ class Site_SSL {
 	 */
 	private function convert_certificates( string $domain ) : bool {
 		return $this->exec(
-			"
-			cp /acme-home/$domain/fullchain.cer /acme-home/$domain/$domain.chain.pem;
-			cp /acme-home/$domain/$domain.cer /acme-home/$domain/$domain.pem;
-		"
+			'for cert_dir in /acme.sh/*_ecc; do
+					domain=$(basename $cert_dir | sed -e s/_ecc//);
+					rm -rf /acme.sh/$domain;
+					mv -f $cert_dir /acme.sh/$domain;
+			done;'  // Move ECC certificates to non-ECC directory, if present
+			. "cp /acme.sh/$domain/fullchain.cer /acme.sh/$domain/$domain.chain.pem;"
+			. "cp /acme.sh/$domain/$domain.cer /acme.sh/$domain/$domain.crt;"
 		);
 	}
 
@@ -205,7 +207,7 @@ class Site_SSL {
 				\EE::debug( "Couldn't load certificate for $domain" );
 				return false;
 			}
-			$res = $this->exec( "acme.sh --revoke -d $domain --reason $reason" );
+			$res = $this->exec( "acme.sh --revoke -d $domain --revoke-reason $reason" );
 			if ( ! $res ) {
 				\EE::debug( "Couldn't revoke certificate for $domain" );
 				return false;
