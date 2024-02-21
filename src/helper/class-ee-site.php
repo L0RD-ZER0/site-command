@@ -2,8 +2,6 @@
 
 namespace EE\Site\Type;
 
-use AcmePhp\Ssl\Certificate;
-use AcmePhp\Ssl\Parser\CertificateParser;
 use EE;
 use EE\Model\Cron;
 use EE\Model\Site;
