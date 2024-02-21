@@ -36,7 +36,7 @@ class Site_SSL {
 	/**
 	 * @var string Certificate authority api to make use of
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	private $certificate_authority = 'letsencrypt';
 	private $challenges;
@@ -68,7 +68,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 *
 	 */
 	public function exec( string $command, array $obfuscate = [], bool $echo_stdout = false, bool $echo_stderr = false, bool $exit_on_error = false ) : bool {
@@ -83,7 +83,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function init() : bool {
 		$exists = \EE::exec(
@@ -111,7 +111,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function load_certificates( string $domain ) : bool {
 		return $this->exec(
@@ -132,7 +132,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function unload_certificates( string $domain ) : bool {
 		return $this->convert_certificates( $domain ) &&
@@ -152,7 +152,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	private function convert_certificates( string $domain ) : bool {
 		return $this->exec(
@@ -173,7 +173,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` if certificate is already present, ``false`` otherwise.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	private function has_certificate( string $domain ) : bool {
 		return $this->exec( "test -f /certs-vol/$domain.conf" );
@@ -186,7 +186,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function register( string $email ) : bool {
 		return $this->exec(
@@ -201,7 +201,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function revoke_certificates( array $domains, int $reason = 0, bool $remove = true ) : bool {
 		foreach ( $domains as $domain ) {
@@ -240,7 +240,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` if certificate is already expired, ``false`` otherwise.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function is_already_expired( string $domain ) : bool {
 		return $this->exec(
@@ -265,7 +265,7 @@ class Site_SSL {
 	 *
 	 * @returns bool ``true`` if certificate should be renewed, ``false`` otherwise.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function is_renewal_necessary( string $domain ) : bool {
 		// Check if certificate expires in next 30 days or so
@@ -316,7 +316,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function issue_certificate( string $domain, array $alt_names, string $email, bool $force = false ) : bool {
 		if ( $this->has_certificate( $domain ) && ! $force ) {
@@ -344,7 +344,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function renew_certificate( string $domain, bool $force = false ) : bool {
 		if ( ! $force && ! $this->is_renewal_necessary( $domain ) ) {
@@ -376,7 +376,7 @@ class Site_SSL {
 	 *
 	 * @return false|string[] List of available domains
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function list_available_domains() : array {
 		//$command = 'docker exec service_global-acme-sh-daemon sh -c \'acme.sh --list | sed -e 1d -e s/\ .*$// | xargs echo\'';
@@ -406,7 +406,7 @@ class Site_SSL {
 	 *
 	 * @returns bool ``true`` on success, ``false`` on failure.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	public function cleanup() : bool {
 		$exists = \EE::exec(
@@ -427,7 +427,7 @@ class Site_SSL {
 	 *
 	 * @return bool ``true`` on success, ``false`` on failure.
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	private function remove_certificate( string $domain ) : bool {
 		$command = "acme.sh --remove -d $domain\n

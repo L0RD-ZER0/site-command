@@ -1562,7 +1562,7 @@ abstract class EE_Site_Command {
 	 *
 	 * @return void
 	 *
-	 * @since 2.2.0
+	 * @since 3.3.0
 	 */
 	protected function renew_le( string $site_url, string $site_fs_path, string $ssl_type, bool $wildcard = false, bool $force = false ) {
 
