@@ -1406,13 +1406,16 @@ abstract class EE_Site_Command {
 					if ( empty( $wildcard ) ) {
 						foreach ( $alias_domains as $domain ) {
 							if ( '*.' . $this->site_data['site_url'] === $domain ) {
-								$wildcard = "1";
+								$wildcard = '1';
 								break;
 							}
 						}
 					}
-
-					$this->init_ssl( $this->site_data['site_url'], $this->site_data['site_fs_path'], $this->site_data['site_ssl'], $wildcard, $is_www_or_non_www_pointed, $force, $alias_domains );
+					if ( $renew ) {
+						$this->renew_le( $this->site_data['site_url'], $this->site_data['site_fs_path'], $this->site_data['site_ssl'], $wildcard, $force );
+					} else {
+						$this->init_ssl( $this->site_data['site_url'], $this->site_data['site_fs_path'], $this->site_data['site_ssl'], $wildcard, $is_www_or_non_www_pointed, $force, $alias_domains );
+					}
 				}
 
 				\EE::success( 'SSL enabled for ' . $this->site_data['site_url'] . ' Updating the configuration.' );
@@ -1527,22 +1530,63 @@ abstract class EE_Site_Command {
 			$client->revoke_certificates( [ $site_url ] );
 		}
 
-//		if ( ! $client->authorize( $domains, $wildcard, $preferred_challenge ) ) {
-//			return;
-//		}
-//		$api_key_absent = empty( get_config_value( 'cloudflare-api-key' ) );
-//		if ( $is_solver_dns && $api_key_absent ) {
-//			echo \cli\Colors::colorize( '%YIMPORTANT:%n Run `ee site ssl-verify ' . $site_url . '` once the DNS changes have propagated to complete the certification generation and installation.', null );
-//		} else {
-//			if ( ! $api_key_absent && $is_solver_dns ) {
-//				EE::log( 'Waiting for DNS entry propagation.' );
-//				sleep( 10 );
-//			}
-//			$this->ssl_verify( [], [ 'force' => $force ], $www_or_non_www );
-//		}
+		//if ( ! $client->authorize( $domains, $wildcard, $preferred_challenge ) ) {
+		//	return;
+		//}
+		//$api_key_absent = empty( get_config_value( 'cloudflare-api-key' ) );
+		//if ( $is_solver_dns && $api_key_absent ) {
+		//	echo \cli\Colors::colorize( '%YIMPORTANT:%n Run `ee site ssl-verify ' . $site_url . '` once the DNS changes have propagated to complete the certification generation and installation.', null );
+		//} else {
+		//	if ( ! $api_key_absent && $is_solver_dns ) {
+		//		EE::log( 'Waiting for DNS entry propagation.' );
+		//		sleep( 10 );
+		//	}
+		//	$this->ssl_verify( [], [ 'force' => $force ], $www_or_non_www );
+		//}
 
 		$le_mail = \EE::get_runner()->config['le-mail'] ?? \EE::input( 'Enter your mail id: ' );
 		$client->issue_certificate( $site_url, $domains, $le_mail, $force );
+		$client->cleanup();
+		$this->dump_docker_compose_yml();
+		reload_global_nginx_proxy();
+	}
+
+	/**
+	 * Helper to renew ssl certificate.
+	 *
+	 * @param string $site_url URL of site.
+	 * @param string $site_fs_path Absolute path of site.
+	 * @param string $ssl_type Type of ssl applied to the site.
+	 * @param bool $wildcard Wildcard cert required?
+	 * @param bool $force Force renewal.
+	 *
+	 * @return void
+	 *
+	 * @since 2.2.0
+	 */
+	protected function renew_le( string $site_url, string $site_fs_path, string $ssl_type, bool $wildcard = false, bool $force = false ) {
+
+		if ( 'le' !== $ssl_type ) {
+			EE::error(
+				'Cannot renew SSL for non-LE SSL type.'
+				. ('inherit' === $ssl_type ? ' Renew the parent site\'s certificate. Certificate for this site is inherited from the parent.' : '')
+			);
+		}
+
+		\EE::debug( 'Wildcard in renew_le: ' . (bool) $wildcard );
+
+		$this->site_data['site_fs_path']      = $site_fs_path;
+		$this->site_data['site_ssl_wildcard'] = $wildcard;
+		$client                               = new Site_SSL();
+		$client->init();
+
+		$key = array_search( $site_url, $client->list_available_domains(), true );
+
+		if ( false !== $key ) {
+			\EE::error( "Unable to renew certificate for site $site_url. It is not present in acme.sh records." );
+		}
+
+		$client->renew_certificate( $site_url, $force );
 		$client->cleanup();
 		$this->dump_docker_compose_yml();
 		reload_global_nginx_proxy();
@@ -1770,6 +1814,8 @@ abstract class EE_Site_Command {
 	 *
 	 * @throws EE\ExitException
 	 * @throws \Exception
+	 *
+	 * @returns void
 	 */
 	private function renew_ssl_cert( $args, $force ) {
 
@@ -1786,15 +1832,21 @@ abstract class EE_Site_Command {
 		}
 
 		$client              = new Site_SSL();
+		$client->init();
 		$preferred_challenge = get_preferred_ssl_challenge( get_domains_of_site( $this->site_data['site_url'] ) );
 
-		if ( $client->is_already_expired( $this->site_data['site_url'] ) && $preferred_challenge !== 'dns' ) {
-			$this->dump_docker_compose_yml( [ 'nohttps' => true ] );
-			$this->enable( $args, [ 'force' => true ] );
+		if ( $client->is_already_expired( $this->site_data['site_url'] ) && 'dns' !== $preferred_challenge ) {
+			$this->dump_docker_compose_yml( [
+				'nohttps' => true,
+			] );
+			$this->enable( $args, [
+				'force' => true,
+			] );
 		}
 
 		if ( ! $force && ! $client->is_renewal_necessary( $this->site_data['site_url'] ) ) {
-			return 0;
+			$client->cleanup();
+			return;
 		}
 
 		$postfix_exists      = \EE_DOCKER::service_exists( 'postfix', $this->site_data['site_fs_path'] );

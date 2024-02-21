@@ -72,7 +72,7 @@ class Site_SSL {
 	 *
 	 */
 	public function exec( string $command, array $obfuscate = [], bool $echo_stdout = false, bool $echo_stderr = false, bool $exit_on_error = false ) : bool {
-		$command = str_replace( "'", "\'", $command );
+		$command = str_replace( "'", "'\''", $command );
 		$command = $this->acme_sh . "'" . $command . "'";
 		\EE::debug( 'Executing: ' . $command );
 		return \EE::exec( $command, $echo_stdout, $echo_stderr, $obfuscate, $exit_on_error );
@@ -244,18 +244,17 @@ class Site_SSL {
 	 */
 	public function is_already_expired( string $domain ) : bool {
 		return $this->exec(
-			"
-				timestamp=\"$(cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e s/\\'//)\"
-				timestamp=date -d \"$(date -d @\$timestamp)+1days\" +%s
-				echo -e \"Timestamp: \$timestamp\nNow: $(date +%s)\"
-				if [ \$timestamp -lt $(date +%s) ]; then  # Timestamp less than now, i.e. date has gone by
-					echo Certificate has Expired;
-					exit 0;  # true
-				else
-					echo Certificate has Not Expired;
-		 			exit 1;  # false
-				fi
-			"
+			"timestamp=\"$( cat /certs-vol/$domain.conf | grep Le_CertCreateTime= | sed -e s/Le_CertCreateTime=// -e \"s/'//g\" )\""
+				. ' timestamp=$(date -d "$(date -d @$timestamp)+90days" +%s);'  // Add 90 days to creation time
+				. ' echo -e "Timestamp for Expiration Date: $timestamp\\nCurrent Timestamp: $(date +%s)";'
+				. ' if [ $timestamp -lt $(date +%s) ]; then'  // Timestamp less than now, i.e. date has gone by
+					. ' echo Certificate has Expired;'
+					. ' exit 0;'  // true
+				. ' else'
+					. ' echo Certificate has Not Expired;'
+				. ' exit 1;'  // false
+				. ' fi'
+			, [], true
 		);
 	}
 
@@ -271,18 +270,16 @@ class Site_SSL {
 	public function is_renewal_necessary( string $domain ) : bool {
 		// Check if certificate expires in next 30 days or so
 		return $this->exec(
-			"
-				timestamp=\"$(cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e s/\\'//)\"
-				timestamp=date -d \"$(date -d @\$timestamp)+1days\" +%s
-				echo -e \"Timestamp: \$timestamp\nNow: $(date +%s)\"
-				if [ \$timestamp -lt $(date -d 30days +%s) ]; then  # Timestamp less than now, i.e. date has gone by
-					echo Renewal is Necessary;
-					exit 0;  # true
-				else
-					echo Renewal is not necessary;
-					exit 1;  # false
-				fi
-			"
+			"timestamp=\"$( cat /certs-vol/$domain.conf | grep Le_NextRenewTime= | sed -e s/Le_NextRenewTime=// -e \"s/'//g\" )\""
+			. ' timestamp=$(date -d @$timestamp +%s);'
+			. ' echo -e "Timestamp for Renewal Date: $timestamp\\nCurrent Timestamp: $(date +%s)";'
+			. ' if [ $timestamp -lt $(date +%s) ]; then'  // Timestamp less than now, i.e. date has gone by
+				. ' echo Renewal is Necessary;'
+				. ' exit 0;'  // true
+			. ' else'
+				. ' echo Renewal is not necessary;'
+				. ' exit 1;'  // false
+			. ' fi' , [], true
 		);
 	}
 
@@ -353,10 +350,23 @@ class Site_SSL {
 		if ( ! $force && ! $this->is_renewal_necessary( $domain ) ) {
 			return true;
 		}
+
+		// Apparently, acme.sh renews http based challenges over http, which requires proxy to allow acme challenges to pass
+		$fs = new \Symfony\Component\Filesystem\Filesystem();
+		$fs->copy( SITE_TEMPLATE_ROOT . '/vhost.d_default_letsencrypt.mustache', EE_ROOT_DIR . '/services/nginx-proxy/vhost.d/default' );
+		$challange_dir = EE_ROOT_DIR . '/services/nginx-proxy/html/.well-known/acme-challenge';
+		$fs->mkdir( $challange_dir );
+		reload_global_nginx_proxy();
+
 		$this->load_certificates( $domain );
 		$command = "acme.sh --renew -d $domain" . ( $force ? ' --force' : '' );
-		$res = $this->exec( $command );
+		$res = $this->exec( $command, [], true );
 		$this->unload_certificates( $domain );
+
+		// Cleanup for http based challenge files
+		$fs->remove( $challange_dir );
+		$fs->remove( EE_ROOT_DIR . '/services/nginx-proxy/vhost.d/default' );
+
 		$res ? reload_global_nginx_proxy() : \EE::error( "Failed to renew certificate for domain $domain" );
 		return $res;
 	}
